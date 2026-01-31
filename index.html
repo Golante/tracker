@@ -1,0 +1,692 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>📍 Трекер</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* iOS-подобный дизайн */
+        :root {
+            --ios-blue: #007AFF;
+            --ios-gray: #F2F2F7;
+            --ios-dark: #1C1C1E;
+            --ios-red: #FF3B30;
+            --ios-green: #34C759;
+            --ios-border: #C6C6C8;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--ios-gray);
+            color: var(--ios-dark);
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* iOS-подобные карточки */
+        .card {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            margin: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+            border: 0.5px solid var(--ios-border);
+        }
+        
+        /* Кнопки в стиле iOS */
+        .ios-button {
+            background: var(--ios-blue);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 17px;
+            font-size: 17px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-appearance: none;
+            margin: 8px 0;
+        }
+        
+        .ios-button:active {
+            opacity: 0.7;
+            transform: scale(0.98);
+        }
+        
+        .ios-button.green {
+            background: var(--ios-green);
+        }
+        
+        .ios-button.red {
+            background: var(--ios-red);
+        }
+        
+        .ios-button:disabled {
+            background: #E5E5EA;
+            color: #8E8E93;
+            transform: none;
+        }
+        
+        /* Заголовки */
+        h1 {
+            font-size: 34px;
+            font-weight: 700;
+            margin: 24px 16px 8px;
+            background: linear-gradient(135deg, var(--ios-blue), #5856D6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            color: #8E8E93;
+            font-size: 15px;
+            margin: 0 16px 24px;
+            line-height: 1.4;
+        }
+        
+        /* Статус бар */
+        .status-bar {
+            background: white;
+            padding: 14px 16px;
+            margin: 0 16px;
+            border-radius: 14px 14px 0 0;
+            border-bottom: 0.5px solid var(--ios-border);
+            font-size: 15px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: var(--ios-red);
+        }
+        
+        .status-indicator.active {
+            background: var(--ios-green);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        /* Карта */
+        #map {
+            height: 300px;
+            border-radius: 0 0 14px 14px;
+            margin: 0 16px 16px;
+            border: 0.5px solid var(--ios-border);
+            z-index: 1;
+        }
+        
+        /* Информация о местоположении */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .info-item {
+            background: var(--ios-gray);
+            padding: 12px;
+            border-radius: 10px;
+        }
+        
+        .info-label {
+            font-size: 13px;
+            color: #8E8E93;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            font-size: 17px;
+            font-weight: 600;
+        }
+        
+        /* Ссылка для доступа */
+        .share-section {
+            margin-top: 20px;
+        }
+        
+        .link-box {
+            background: #E8F4FF;
+            padding: 16px;
+            border-radius: 10px;
+            margin-top: 12px;
+            word-break: break-all;
+            font-size: 14px;
+            border: 1px solid #A7D4FF;
+        }
+        
+        .timer-selector {
+            display: flex;
+            gap: 8px;
+            margin: 16px 0;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+        
+        .time-option {
+            padding: 10px 16px;
+            background: white;
+            border: 1px solid var(--ios-border);
+            border-radius: 10px;
+            font-size: 15px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        
+        .time-option.active {
+            background: var(--ios-blue);
+            color: white;
+            border-color: var(--ios-blue);
+        }
+        
+        /* Переключатель */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 51px;
+            height: 31px;
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #E5E5EA;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 27px;
+            width: 27px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        input:checked + .slider {
+            background-color: var(--ios-green);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* Адаптивность для iPhone */
+        @media (max-width: 375px) {
+            .card {
+                margin: 12px;
+                padding: 16px;
+            }
+            
+            #map {
+                height: 250px;
+            }
+        }
+        
+        /* Эффект нажатия для iOS */
+        .ios-press:active {
+            background-color: rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Заголовок -->
+    <h1>📍 Трекер</h1>
+    <div class="subtitle">Делитесь своим местоположением в реальном времени</div>
+    
+    <!-- Статус -->
+    <div class="card" style="margin-bottom: 0; border-radius: 14px 14px 0 0;">
+        <div class="status-bar">
+            <span class="status-indicator" id="statusIndicator"></span>
+            <span id="statusText">Неактивно</span>
+        </div>
+    </div>
+    
+    <!-- Карта -->
+    <div id="map"></div>
+    
+    <!-- Управление -->
+    <div class="card">
+        <div style="display: flex; align-items: center; margin-bottom: 20px;">
+            <label class="switch">
+                <input type="checkbox" id="trackingToggle">
+                <span class="slider"></span>
+            </label>
+            <span style="font-size: 17px; font-weight: 600;">Отслеживание</span>
+        </div>
+        
+        <!-- Таймер жизни ссылки -->
+        <div style="margin-bottom: 20px;">
+            <div style="font-size: 15px; color: #8E8E93; margin-bottom: 8px;">Время жизни ссылки:</div>
+            <div class="timer-selector">
+                <div class="time-option active" data-minutes="15">15 мин</div>
+                <div class="time-option" data-minutes="30">30 мин</div>
+                <div class="time-option" data-minutes="60">1 час</div>
+                <div class="time-option" data-minutes="180">3 часа</div>
+                <div class="time-option" data-minutes="0">∞ Бессрочно</div>
+            </div>
+        </div>
+        
+        <button class="ios-button" id="shareBtn" disabled>
+            <span>📋 Получить ссылку для доступа</span>
+        </button>
+        
+        <!-- Секция с ссылкой -->
+        <div class="share-section" id="shareSection" style="display: none;">
+            <div style="font-size: 15px; color: #8E8E93; margin-bottom: 8px;">Ссылка активна до:</div>
+            <div id="expiryTime" style="font-weight: 600; margin-bottom: 12px;">--:--</div>
+            <div class="link-box" id="linkBox"></div>
+            <button class="ios-button green" id="copyBtn" style="margin-top: 16px;">
+                <span>Скопировать ссылку</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Информация о местоположении -->
+    <div class="card">
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 16px;">📍 Текущее местоположение</div>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Широта</div>
+                <div class="info-value" id="latitude">—</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Долгота</div>
+                <div class="info-value" id="longitude">—</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Точность</div>
+                <div class="info-value" id="accuracy">—</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Обновлено</div>
+                <div class="info-value" id="lastUpdate">—</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- История маршрута (опционально) -->
+    <div class="card" id="historySection" style="display: none;">
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 12px;">📈 История маршрута</div>
+        <div style="height: 60px; background: var(--ios-gray); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #8E8E93;">
+            Запись начата в <span id="startTime">--:--</span>
+        </div>
+    </div>
+    
+    <div style="height: 30px;"></div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Инициализация
+        const sessionId = Math.random().toString(36).substring(2, 9);
+        let map = null, marker = null, polyline = null;
+        let watchId = null, linkExpiry = null;
+        let linkDuration = 15; // минут по умолчанию
+        const positionsHistory = [];
+        
+        // Элементы DOM
+        const elements = {
+            statusIndicator: document.getElementById('statusIndicator'),
+            statusText: document.getElementById('statusText'),
+            trackingToggle: document.getElementById('trackingToggle'),
+            shareBtn: document.getElementById('shareBtn'),
+            shareSection: document.getElementById('shareSection'),
+            linkBox: document.getElementById('linkBox'),
+            copyBtn: document.getElementById('copyBtn'),
+            expiryTime: document.getElementById('expiryTime'),
+            latitude: document.getElementById('latitude'),
+            longitude: document.getElementById('longitude'),
+            accuracy: document.getElementById('accuracy'),
+            lastUpdate: document.getElementById('lastUpdate'),
+            historySection: document.getElementById('historySection'),
+            startTime: document.getElementById('startTime')
+        };
+        
+        // Настройка времени жизни ссылки
+        document.querySelectorAll('.time-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.time-option').forEach(o => o.classList.remove('active'));
+                this.classList.add('active');
+                linkDuration = parseInt(this.dataset.minutes);
+                updateExpiryTime();
+            });
+        });
+        
+        // Переключатель отслеживания
+        elements.trackingToggle.addEventListener('change', function() {
+            if (this.checked) {
+                startTracking();
+            } else {
+                stopTracking();
+            }
+        });
+        
+        // Кнопка "Получить ссылку"
+        elements.shareBtn.addEventListener('click', generateShareLink);
+        
+        // Кнопка "Скопировать"
+        elements.copyBtn.addEventListener('click', copyLinkToClipboard);
+        
+        // Инициализация карты
+        function initMap(lat = 55.7558, lng = 37.6173) {
+            if (!map) {
+                map = L.map('map', {
+                    zoomControl: false,
+                    dragging: !L.Browser.mobile
+                }).setView([lat, lng], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap',
+                    maxZoom: 19
+                }).addTo(map);
+                
+                // Кастомные контролы для iOS
+                L.control.zoom({
+                    position: 'bottomright'
+                }).addTo(map);
+                
+                polyline = L.polyline([], {
+                    color: '#007AFF',
+                    weight: 4,
+                    opacity: 0.7,
+                    lineJoin: 'round'
+                }).addTo(map);
+            }
+            return map;
+        }
+        
+        // Запуск отслеживания
+        function startTracking() {
+            if (!navigator.geolocation) {
+                alert("Геолокация не поддерживается");
+                elements.trackingToggle.checked = false;
+                return;
+            }
+            
+            updateStatus(true, "Активно — определение местоположения...");
+            elements.shareBtn.disabled = false;
+            elements.historySection.style.display = 'block';
+            elements.startTime.textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            initMap();
+            
+            // Запрос высокоточного местоположения
+            watchId = navigator.geolocation.watchPosition(
+                onPositionUpdate,
+                onPositionError,
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 5000,
+                    timeout: 10000
+                }
+            );
+        }
+        
+        // Остановка отслеживания
+        function stopTracking() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            updateStatus(false, "Неактивно");
+            elements.shareBtn.disabled = true;
+        }
+        
+        // Обновление статуса
+        function updateStatus(active, text) {
+            elements.statusIndicator.className = active ? 'status-indicator active' : 'status-indicator';
+            elements.statusText.textContent = text;
+        }
+        
+        // Обработка обновления позиции
+        function onPositionUpdate(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            const timestamp = new Date(position.timestamp);
+            
+            // Обновление интерфейса
+            elements.latitude.textContent = lat.toFixed(6);
+            elements.longitude.textContent = lng.toFixed(6);
+            elements.accuracy.textContent = `${accuracy.toFixed(0)} м`;
+            elements.lastUpdate.textContent = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            
+            // Обновление карты
+            if (!map) initMap(lat, lng);
+            
+            if (!marker) {
+                marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="width: 24px; height: 24px; background: #007AFF; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    })
+                }).addTo(map)
+                .bindPopup("📍 Вы здесь!")
+                .openPopup();
+            } else {
+                marker.setLatLng([lat, lng]);
+            }
+            
+            // Добавление в историю маршрута
+            positionsHistory.push([lat, lng]);
+            if (polyline) {
+                polyline.setLatLngs(positionsHistory);
+            }
+            
+            map.setView([lat, lng], 15);
+            updateStatus(true, `Активно • Точность: ${accuracy.toFixed(0)} м`);
+            
+            // Сохранение в localStorage для передачи
+            const positionData = {
+                lat, lng, accuracy,
+                time: timestamp.getTime(),
+                sessionId
+            };
+            localStorage.setItem(`tracker_${sessionId}`, JSON.stringify(positionData));
+        }
+        
+        // Обработка ошибок
+        function onPositionError(error) {
+            let message = "Ошибка геолокации: ";
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message += "Доступ запрещен. Разрешите доступ в настройках Safari.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message += "Данные недоступны.";
+                    break;
+                case error.TIMEOUT:
+                    message += "Таймаут запроса.";
+                    break;
+                default:
+                    message += "Неизвестная ошибка.";
+            }
+            
+            updateStatus(false, message);
+            elements.trackingToggle.checked = false;
+            alert(message);
+        }
+        
+        // Генерация ссылки для доступа
+        function generateShareLink() {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareUrl = `${baseUrl}?view=${sessionId}`;
+            
+            // Установка времени истечения
+            if (linkDuration > 0) {
+                linkExpiry = new Date(Date.now() + linkDuration * 60000);
+                elements.expiryTime.textContent = linkExpiry.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                // Автоматическое удаление по истечении времени
+                setTimeout(() => {
+                    if (confirm("Время доступа по ссылке истекло. Создать новую?")) {
+                        generateShareLink();
+                    } else {
+                        elements.shareSection.style.display = 'none';
+                    }
+                }, linkDuration * 60000);
+            } else {
+                elements.expiryTime.textContent = "бессрочно";
+            }
+            
+            // Отображение ссылки
+            elements.linkBox.textContent = shareUrl;
+            elements.shareSection.style.display = 'block';
+            
+            // Прокрутка к ссылке
+            elements.shareSection.scrollIntoView({ behavior: 'smooth' });
+            
+            // Сохранение времени истечения
+            localStorage.setItem(`expiry_${sessionId}`, linkExpiry ? linkExpiry.getTime() : 0);
+        }
+        
+        // Обновление времени истечения
+        function updateExpiryTime() {
+            if (linkExpiry && linkDuration > 0) {
+                linkExpiry = new Date(Date.now() + linkDuration * 60000);
+                elements.expiryTime.textContent = linkExpiry.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            }
+        }
+        
+        // Копирование ссылки
+        async function copyLinkToClipboard() {
+            try {
+                await navigator.clipboard.writeText(elements.linkBox.textContent);
+                const originalText = elements.copyBtn.innerHTML;
+                elements.copyBtn.innerHTML = '<span>✅ Скопировано!</span>';
+                setTimeout(() => {
+                    elements.copyBtn.innerHTML = originalText;
+                }, 2000);
+            } catch (err) {
+                alert("Не удалось скопировать. Скопируйте ссылку вручную.");
+            }
+        }
+        
+        // Режим просмотра (для получателя ссылки)
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewId = urlParams.get('view');
+        
+        if (viewId) {
+            // Переход в режим просмотра
+            document.body.innerHTML = `
+                <div class="card" style="text-align: center; padding: 40px 20px;">
+                    <div style="font-size: 120px; margin-bottom: 20px;">📍</div>
+                    <h2 style="margin-bottom: 8px;">Режим просмотра</h2>
+                    <div style="color: #8E8E93; margin-bottom: 30px;">Отслеживание местоположения в реальном времени</div>
+                    <div id="viewerMap" style="height: 300px; border-radius: 14px; margin: 20px 0;"></div>
+                    <div id="viewerStatus" style="color: #8E8E93; font-size: 15px;">Ожидание данных...</div>
+                </div>
+            `;
+            
+            initViewerMode(viewId);
+        }
+        
+        // Инициализация режима просмотра
+        function initViewerMode(viewId) {
+            const viewerMap = L.map('viewerMap').setView([55.7558, 37.6173], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(viewerMap);
+            
+            let viewerMarker = null;
+            let viewerPolyline = [];
+            const viewerLine = L.polyline([], {color: '#007AFF', weight: 3}).addTo(viewerMap);
+            
+            // Проверка обновлений каждые 2 секунды
+            setInterval(() => {
+                const data = localStorage.getItem(`tracker_${viewId}`);
+                const expiry = localStorage.getItem(`expiry_${viewId}`);
+                
+                if (expiry && parseInt(expiry) > 0 && Date.now() > parseInt(expiry)) {
+                    document.getElementById('viewerStatus').innerHTML = 
+                        '<span style="color: #FF3B30;">⏳ Время доступа истекло</span>';
+                    return;
+                }
+                
+                if (data) {
+                    const pos = JSON.parse(data);
+                    
+                    // Обновление маркера
+                    if (!viewerMarker) {
+                        viewerMarker = L.marker([pos.lat, pos.lng]).addTo(viewerMap)
+                            .bindPopup("Текущее местоположение");
+                    } else {
+                        viewerMarker.setLatLng([pos.lat, pos.lng]);
+                    }
+                    
+                    // Добавление в историю маршрута
+                    viewerPolyline.push([pos.lat, pos.lng]);
+                    viewerLine.setLatLngs(viewerPolyline);
+                    
+                    viewerMap.setView([pos.lat, pos.lng], 15);
+                    
+                    // Обновление статуса
+                    const time = new Date(pos.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    document.getElementById('viewerStatus').innerHTML = `
+                        📍 Активно • Обновлено: ${time}<br>
+                        <small>Точность: ${pos.accuracy.toFixed(0)} метров</small>
+                    `;
+                }
+            }, 2000);
+        }
+        
+        // Инициализация карты при загрузке
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!viewId) {
+                initMap();
+            }
+        });
+        
+        // Сохранение состояния при закрытии (для iOS)
+        window.addEventListener('pagehide', () => {
+            if (watchId) {
+                localStorage.setItem('tracking_active', 'true');
+            }
+        });
+        
+        // Восстановление состояния (опционально)
+        if (localStorage.getItem('tracking_active') === 'true' && !viewId) {
+            setTimeout(() => {
+                if (confirm("Восстановить отслеживание?")) {
+                    elements.trackingToggle.checked = true;
+                    startTracking();
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>
